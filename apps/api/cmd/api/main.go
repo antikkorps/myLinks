@@ -3,40 +3,27 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
+
+	"github.com/antikkorps/myLinks/apps/api/internal/config"
+	"github.com/antikkorps/myLinks/apps/api/internal/database"
+	"github.com/antikkorps/myLinks/apps/api/internal/handler"
 )
 
 func main() {
-	// Load environment variables from .env file
-	if err := godotenv.Load("../../.env"); err != nil {
-		log.Printf("No .env file found: %v", err)
-	}
-
-	// Read DATABASE_URL
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL is required")
-	}
-
-	// Create root Context + pgx pool
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
-	if err != nil {
-		log.Fatalf("Unable to connect to database: %v", err)
-	}
-	defer pool.Close()
-
-	// Verify connection
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("Unable to ping database: %v", err)
-	}
-	log.Println("Successfully connected to database")
-
-	app := fiber.New()
+	cfg, err := config.Load()
+      if err != nil { log.Fatalf("config: %v", err) }                   
+   
+      ctx := context.Background()                                       
+      pool, err := database.Connect(ctx, cfg.DatabaseURL)
+      if err != nil { log.Fatalf("database: %v", err) }                 
+      defer pool.Close()
+                                                                        
+      app := fiber.New()                                                
+      app.Get("/health", handler.Health(pool))
+                                                                        
+      log.Fatal(app.Listen(":" + cfg.APIPort))
 
 	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("Hello, World!")
