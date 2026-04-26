@@ -9,6 +9,7 @@ import (
 	"github.com/antikkorps/myLinks/apps/api/internal/config"
 	"github.com/antikkorps/myLinks/apps/api/internal/database"
 	"github.com/antikkorps/myLinks/apps/api/internal/handler"
+	"github.com/antikkorps/myLinks/apps/api/internal/repository"
 )
 
 func main() {
@@ -19,9 +20,13 @@ func main() {
       pool, err := database.Connect(ctx, cfg.DatabaseURL)
       if err != nil { log.Fatalf("database: %v", err) }                 
       defer pool.Close()
+
+	  linkRepo := repository.NewLinkRepository(pool)
+	  linkHandler := handler.NewLinkHandler(linkRepo)
                                                                         
       app := fiber.New()                                                
       app.Get("/health", handler.Health(pool))
+      app.Get("/links", linkHandler.List)
                                                                         
       log.Fatal(app.Listen(":" + cfg.APIPort))
 
