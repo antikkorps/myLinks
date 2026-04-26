@@ -8,8 +8,8 @@ import (
 func Health(pool *pgxpool.Pool) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		if err := pool.Ping(c.Context()); err != nil {
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"status":"down", "error": err.Error()})
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"status": "down", "error": err.Error()})
 		}
-		return c.JSON(fiber.Map{"status":"ok"})
+		return c.JSON(fiber.Map{"status": "ok"})
 	}
 }
