@@ -1,0 +1,30 @@
+# Env
+.env
+.env.local
+*.env.local
+
+# Go
+apps/api/bin/
+apps/api/tmp/
+*.exe
+*.test
+*.out
+vendor/
+
+# Rust
+apps/scraper/target/
+**/*.rs.bk
+
+# Node / Nuxt
+node_modules/
+.nuxt/
+.output/
+.nitro/
+.cache/
+dist/
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
