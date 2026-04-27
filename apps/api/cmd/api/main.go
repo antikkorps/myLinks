@@ -10,6 +10,7 @@ import (
 	"github.com/antikkorps/myLinks/apps/api/internal/database"
 	"github.com/antikkorps/myLinks/apps/api/internal/handler"
 	"github.com/antikkorps/myLinks/apps/api/internal/repository"
+	"github.com/antikkorps/myLinks/apps/api/internal/service"
 )
 
 func main() {
@@ -28,24 +29,14 @@ func main() {
 	linkRepo := repository.NewLinkRepository(pool)
 	linkHandler := handler.NewLinkHandler(linkRepo, cfg.TestUserID)
 
+	authService := service.NewAuthService(pool)
+	authHandler := handler.NewAuthHandler(authService)
+
 	app := fiber.New()
 	app.Get("/health", handler.Health(pool))
 	app.Get("/links", linkHandler.List)
 	app.Post("/links", linkHandler.Create)
+	app.Post("/auth/register", authHandler.Register)
 
 	log.Fatal(app.Listen(":" + cfg.APIPort))
-
-	app.Get("/", func(c fiber.Ctx) error {
-		return c.SendString("Hello, World!")
-	})
-
-	app.Get("/health", func(c fiber.Ctx) error {
-		pool.Ping(c.Context())
-		if err := pool.Ping(c.Context()); err != nil {
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"status": "down", "error": err.Error()})
-		}
-		return c.JSON(fiber.Map{"status": "ok"})
-	})
-
-	log.Fatal(app.Listen(":8000"))
 }

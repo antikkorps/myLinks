@@ -3,6 +3,7 @@ module github.com/antikkorps/myLinks/apps/api
 go 1.26.2
 
 require (
+	github.com/alexedwards/argon2id v1.0.0
 	github.com/gofiber/fiber/v3 v3.2.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
