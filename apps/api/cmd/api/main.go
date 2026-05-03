@@ -38,6 +38,7 @@ func main() {
 	app.Get("/links", linkHandler.List)
 	app.Post("/links", linkHandler.Create)
 	app.Post("/auth/register", authHandler.Register)
+	app.Post("/auth/login", authHandler.Login)
 
 	log.Fatal(app.Listen(":" + cfg.APIPort))
 }
