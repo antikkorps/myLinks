@@ -262,3 +262,20 @@ func (s *AuthService) Refresh(ctx context.Context, refreshTokenRaw string) (Logi
 		RefreshExpiresAt: newExp,
 	}, nil
 }
+
+func (s *AuthService) Logout(ctx context.Context, refreshTokenRaw string) error {
+	if refreshTokenRaw == "" {
+		return nil
+	}
+	sum := sha256.Sum256([]byte(refreshTokenRaw))
+	hash := hex.EncodeToString(sum[:])
+
+	rt, err := s.refreshRepo.GetByTokenHash(ctx, hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return s.refreshRepo.Revoke(ctx, rt.ID)
+}

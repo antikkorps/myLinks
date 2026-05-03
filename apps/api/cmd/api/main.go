@@ -40,6 +40,7 @@ func main() {
 	app.Post("/auth/register", authHandler.Register)
 	app.Post("/auth/login", authHandler.Login)
 	app.Post("/auth/refresh", authHandler.Refresh)
+	app.Post("/auth/logout", authHandler.Logout)
 
 	link := app.Group("/links", middleware.RequireAuth(cfg.JWTSecret))
 	link.Get("/", linkHandler.List)
