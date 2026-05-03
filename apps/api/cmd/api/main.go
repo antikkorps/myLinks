@@ -3,52 +3,48 @@ package main
 import (
 	"context"
 	"log"
-	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
+
+	"github.com/antikkorps/myLinks/apps/api/internal/config"
+	"github.com/antikkorps/myLinks/apps/api/internal/database"
+	"github.com/antikkorps/myLinks/apps/api/internal/handler"
+	"github.com/antikkorps/myLinks/apps/api/internal/middleware"
+	"github.com/antikkorps/myLinks/apps/api/internal/repository"
+	"github.com/antikkorps/myLinks/apps/api/internal/service"
 )
 
 func main() {
-	// Load environment variables from .env file
-	if err := godotenv.Load("../../.env"); err != nil {
-		log.Printf("No .env file found: %v", err)
-	}
-
-	// Read DATABASE_URL
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL is required")
-	}
-
-	// Create root Context + pgx pool
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
+	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Unable to connect to database: %v", err)
+		log.Fatalf("config: %v", err)
+	}
+
+	ctx := context.Background()
+	pool, err := database.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("database: %v", err)
 	}
 	defer pool.Close()
 
-	// Verify connection
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("Unable to ping database: %v", err)
-	}
-	log.Println("Successfully connected to database")
+	linkRepo := repository.NewLinkRepository(pool)
+	linkHandler := handler.NewLinkHandler(linkRepo)
+
+	refreshRepo := repository.NewRefreshTokenRepository(pool)
+	authService := service.NewAuthService(pool, refreshRepo, cfg.JWTSecret, 15*time.Minute, 30*24*time.Hour)
+	authHandler := handler.NewAuthHandler(authService)
 
 	app := fiber.New()
+	app.Get("/health", handler.Health(pool))
+	app.Post("/auth/register", authHandler.Register)
+	app.Post("/auth/login", authHandler.Login)
+	app.Post("/auth/refresh", authHandler.Refresh)
+	app.Post("/auth/logout", authHandler.Logout)
 
-	app.Get("/", func(c fiber.Ctx) error {
-		return c.SendString("Hello, World!")
-	})
+	link := app.Group("/links", middleware.RequireAuth(cfg.JWTSecret))
+	link.Get("/", linkHandler.List)
+	link.Post("/", linkHandler.Create)
 
-	app.Get("/health", func(c fiber.Ctx) error {
-		pool.Ping(c.Context())
-		if err := pool.Ping(c.Context()); err != nil {
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"status":"down", "error": err.Error()})
-		}
-		return c.JSON(fiber.Map{"status":"ok"})
-	})
-
-	log.Fatal(app.Listen(":8000"))
+	log.Fatal(app.Listen(":" + cfg.APIPort))
 }

@@ -7,7 +7,7 @@ endif
 DATABASE_URL ?= postgres://mylinks:mylinks_dev@localhost:5434/mylinks?sslmode=disable
 MIGRATIONS_DIR := migrations
 
-.PHONY: db-up db-down db-logs db-psql migrate-up migrate-down migrate-status migrate-create
+.PHONY: db-up db-down db-logs db-psql migrate-up migrate-down migrate-status migrate-create api-run api-build
 
 ## --- Docker (Postgres) ---
 db-up:
@@ -35,3 +35,10 @@ migrate-status:
 # Usage: make migrate-create NAME=add_users_table
 migrate-create:
 	migrate create -ext sql -dir $(MIGRATIONS_DIR) -seq $(NAME)
+
+## --- API (Go) ---
+api-run:
+	cd apps/api && go run ./cmd/api
+
+api-build:
+	cd apps/api && go build -o bin/api ./cmd/api
