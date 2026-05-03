@@ -11,6 +11,7 @@ apps/api/tmp/
 *.out
 vendor/
 cookies.txt
+cookies-*.txt
 
 # Rust
 apps/scraper/target/

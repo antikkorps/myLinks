@@ -2,6 +2,10 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -21,22 +25,28 @@ var ErrEmailAlreadyExists = errors.New("email already exists")
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
 type AuthService struct {
-	pool      *pgxpool.Pool
-	jwtSecret []byte
-	tokenTTL  time.Duration
+	pool        *pgxpool.Pool
+	refreshRepo *repository.RefreshTokenRepository
+	jwtSecret   []byte
+	accessTTL   time.Duration
+	refreshTTL  time.Duration
 }
 
 type LoginResult struct {
-	User        domain.User
-	AccessToken string
-	ExpiresAt   time.Time
+	User             domain.User
+	AccessToken      string
+	AccessExpiresAt  time.Time
+	RefreshToken     string
+	RefreshExpiresAt time.Time
 }
 
-func NewAuthService(pool *pgxpool.Pool, jwtSecret string, tokenTTL time.Duration) *AuthService {
+func NewAuthService(pool *pgxpool.Pool, refreshRepo *repository.RefreshTokenRepository, jwtSecret string, accessTTL, refreshTTL time.Duration) *AuthService {
 	return &AuthService{
-		pool:      pool,
-		jwtSecret: []byte(jwtSecret),
-		tokenTTL:  tokenTTL,
+		pool:        pool,
+		refreshRepo: refreshRepo,
+		jwtSecret:   []byte(jwtSecret),
+		accessTTL:   accessTTL,
+		refreshTTL:  refreshTTL,
 	}
 }
 
@@ -97,9 +107,21 @@ func isUniqueViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
+func (s *AuthService) generateRefreshToken() (raw, hash string, expiresAt time.Time, err error) {
+	b := make([]byte, 32)
+	if _, err = rand.Read(b); err != nil {
+		return "", "", time.Time{}, err
+	}
+	raw = base64.RawURLEncoding.EncodeToString(b)
+	sum := sha256.Sum256([]byte(raw))
+	hash = hex.EncodeToString(sum[:])
+	expiresAt = time.Now().Add(s.refreshTTL)
+	return raw, hash, expiresAt, nil
+}
+
 func (s *AuthService) generateToken(userID uuid.UUID) (string, time.Time,
 	error) {
-	expiresAt := time.Now().Add(s.tokenTTL)
+	expiresAt := time.Now().Add(s.accessTTL)
 	claims := jwt.MapClaims{
 		"sub": userID.String(),
 		"iat": time.Now().Unix(),
@@ -147,9 +169,96 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 		return LoginResult{}, err
 	}
 
+	refreshRaw, refreshHash, refreshExp, err := s.generateRefreshToken()
+	if err != nil {
+		return LoginResult{}, err
+	}
+	if _, err := s.refreshRepo.Create(ctx, domain.RefreshToken{
+		UserID:    user.ID,
+		TokenHash: refreshHash,
+		ExpiresAt: refreshExp,
+	}); err != nil {
+		return LoginResult{}, err
+	}
+
 	return LoginResult{
-		User:        user,
-		AccessToken: token,
-		ExpiresAt:   expiresAt,
+		User:             user,
+		AccessToken:      token,
+		AccessExpiresAt:  expiresAt,
+		RefreshToken:     refreshRaw,
+		RefreshExpiresAt: refreshExp,
+	}, nil
+}
+
+func (s *AuthService) Refresh(ctx context.Context, refreshTokenRaw string) (LoginResult, error) {
+	sum := sha256.Sum256([]byte(refreshTokenRaw))
+	hash := hex.EncodeToString(sum[:])
+
+	rt, err := s.refreshRepo.GetByTokenHash(ctx, hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+	if err != nil {
+		return LoginResult{}, err
+	}
+
+	if rt.RevokedAt != nil {
+		// Reuse detection: a revoked token is being replayed.
+		// Revoke every refresh of this user as a precaution.
+		_ = s.refreshRepo.RevokeAllForUser(ctx, rt.UserID)
+		return LoginResult{}, ErrInvalidCredentials
+	}
+
+	if time.Now().After(rt.ExpiresAt) {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+
+	userRepo := repository.NewUserRepository(s.pool)
+	user, err := userRepo.GetByID(ctx, rt.UserID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+	if err != nil {
+		return LoginResult{}, err
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return LoginResult{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	txRepo := repository.NewRefreshTokenRepository(tx)
+	if err := txRepo.Revoke(ctx, rt.ID); err != nil {
+		return LoginResult{}, err
+	}
+
+	newRaw, newHash, newExp, err := s.generateRefreshToken()
+	if err != nil {
+		return LoginResult{}, err
+	}
+	if _, err := txRepo.Create(ctx, domain.RefreshToken{
+		UserID:    user.ID,
+		TokenHash: newHash,
+		ExpiresAt: newExp,
+	}); err != nil {
+		return LoginResult{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return LoginResult{}, err
+	}
+
+	accessToken, accessExp, err := s.generateToken(user.ID)
+	if err != nil {
+		return LoginResult{}, err
+	}
+
+	return LoginResult{
+		User:             user,
+		AccessToken:      accessToken,
+		AccessExpiresAt:  accessExp,
+		RefreshToken:     newRaw,
+		RefreshExpiresAt: newExp,
 	}, nil
 }

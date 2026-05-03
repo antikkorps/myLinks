@@ -31,13 +31,15 @@ func main() {
 	linkRepo := repository.NewLinkRepository(pool)
 	linkHandler := handler.NewLinkHandler(linkRepo)
 
-	authService := service.NewAuthService(pool, cfg.JWTSecret, 15*time.Minute)
+	refreshRepo := repository.NewRefreshTokenRepository(pool)
+	authService := service.NewAuthService(pool, refreshRepo, cfg.JWTSecret, 15*time.Minute, 30*24*time.Hour)
 	authHandler := handler.NewAuthHandler(authService)
 
 	app := fiber.New()
 	app.Get("/health", handler.Health(pool))
 	app.Post("/auth/register", authHandler.Register)
 	app.Post("/auth/login", authHandler.Login)
+	app.Post("/auth/refresh", authHandler.Refresh)
 
 	link := app.Group("/links", middleware.RequireAuth(cfg.JWTSecret))
 	link.Get("/", linkHandler.List)
