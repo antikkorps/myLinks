@@ -11,6 +11,7 @@ type Config struct {
 	DatabaseURL string
 	APIPort     string
 	TestUserID  string // TODO: remove when auth is implemented
+	JWTSecret   string
 }
 
 func Load() (*Config, error) {
@@ -23,6 +24,7 @@ func Load() (*Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		APIPort:     os.Getenv("API_PORT"),
 		TestUserID:  os.Getenv("TEST_USER_ID"),
+		JWTSecret:   os.Getenv("JWT_SECRET"),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -30,6 +32,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.APIPort == "" {
 		cfg.APIPort = "8000" // default port
+	}
+	if cfg.JWTSecret == "" {
+		return nil, fmt.Errorf("JWT_SECRET is required")
 	}
 
 	return cfg, nil

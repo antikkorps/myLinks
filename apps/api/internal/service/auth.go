@@ -4,8 +4,12 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -14,13 +18,26 @@ import (
 )
 
 var ErrEmailAlreadyExists = errors.New("email already exists")
+var ErrInvalidCredentials = errors.New("invalid credentials")
 
 type AuthService struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	jwtSecret []byte
+	tokenTTL  time.Duration
 }
 
-func NewAuthService(pool *pgxpool.Pool) *AuthService {
-	return &AuthService{pool: pool}
+type LoginResult struct {
+	User        domain.User
+	AccessToken string
+	ExpiresAt   time.Time
+}
+
+func NewAuthService(pool *pgxpool.Pool, jwtSecret string, tokenTTL time.Duration) *AuthService {
+	return &AuthService{
+		pool:      pool,
+		jwtSecret: []byte(jwtSecret),
+		tokenTTL:  tokenTTL,
+	}
 }
 
 type RegisterInput struct {
@@ -78,4 +95,61 @@ func (s *AuthService) Register(ctx context.Context, in RegisterInput) (domain.Us
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+func (s *AuthService) generateToken(userID uuid.UUID) (string, time.Time,
+	error) {
+	expiresAt := time.Now().Add(s.tokenTTL)
+	claims := jwt.MapClaims{
+		"sub": userID.String(),
+		"iat": time.Now().Unix(),
+		"exp": expiresAt.Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(s.jwtSecret)
+	return signed, expiresAt, err
+}
+
+func (s *AuthService) Login(ctx context.Context, email, password string) (LoginResult, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+
+	accountRepo := repository.NewAccountRepository(s.pool)
+	account, err := accountRepo.GetByProviderAndIdentifier(ctx, "password", email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+	if err != nil {
+		return LoginResult{}, err
+	}
+	if account.PasswordHash == nil {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+
+	match, err := argon2id.ComparePasswordAndHash(password, *account.PasswordHash)
+	if err != nil {
+		return LoginResult{}, err
+	}
+	if !match {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+
+	userRepo := repository.NewUserRepository(s.pool)
+	user, err := userRepo.GetByID(ctx, account.UserID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+	if err != nil {
+		return LoginResult{}, err
+	}
+
+	token, expiresAt, err := s.generateToken(user.ID)
+	if err != nil {
+		return LoginResult{}, err
+	}
+
+	return LoginResult{
+		User:        user,
+		AccessToken: token,
+		ExpiresAt:   expiresAt,
+	}, nil
 }

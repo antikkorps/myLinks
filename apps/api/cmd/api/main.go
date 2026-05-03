@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -29,7 +30,7 @@ func main() {
 	linkRepo := repository.NewLinkRepository(pool)
 	linkHandler := handler.NewLinkHandler(linkRepo, cfg.TestUserID)
 
-	authService := service.NewAuthService(pool)
+	authService := service.NewAuthService(pool, cfg.JWTSecret, 15*time.Minute)
 	authHandler := handler.NewAuthHandler(authService)
 
 	app := fiber.New()
