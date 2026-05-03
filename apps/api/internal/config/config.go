@@ -10,7 +10,6 @@ import (
 type Config struct {
 	DatabaseURL string
 	APIPort     string
-	TestUserID  string // TODO: remove when auth is implemented
 	JWTSecret   string
 }
 
@@ -23,7 +22,6 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		APIPort:     os.Getenv("API_PORT"),
-		TestUserID:  os.Getenv("TEST_USER_ID"),
 		JWTSecret:   os.Getenv("JWT_SECRET"),
 	}
 

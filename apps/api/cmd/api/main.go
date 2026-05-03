@@ -10,6 +10,7 @@ import (
 	"github.com/antikkorps/myLinks/apps/api/internal/config"
 	"github.com/antikkorps/myLinks/apps/api/internal/database"
 	"github.com/antikkorps/myLinks/apps/api/internal/handler"
+	"github.com/antikkorps/myLinks/apps/api/internal/middleware"
 	"github.com/antikkorps/myLinks/apps/api/internal/repository"
 	"github.com/antikkorps/myLinks/apps/api/internal/service"
 )
@@ -28,17 +29,19 @@ func main() {
 	defer pool.Close()
 
 	linkRepo := repository.NewLinkRepository(pool)
-	linkHandler := handler.NewLinkHandler(linkRepo, cfg.TestUserID)
+	linkHandler := handler.NewLinkHandler(linkRepo)
 
 	authService := service.NewAuthService(pool, cfg.JWTSecret, 15*time.Minute)
 	authHandler := handler.NewAuthHandler(authService)
 
 	app := fiber.New()
 	app.Get("/health", handler.Health(pool))
-	app.Get("/links", linkHandler.List)
-	app.Post("/links", linkHandler.Create)
 	app.Post("/auth/register", authHandler.Register)
 	app.Post("/auth/login", authHandler.Login)
+
+	link := app.Group("/links", middleware.RequireAuth(cfg.JWTSecret))
+	link.Get("/", linkHandler.List)
+	link.Post("/", linkHandler.Create)
 
 	log.Fatal(app.Listen(":" + cfg.APIPort))
 }

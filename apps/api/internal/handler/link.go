@@ -11,8 +11,7 @@ import (
 )
 
 type LinkHandler struct {
-	repo       *repository.LinkRepository
-	testUserID string // TODO: remove when auth is implemented
+	repo *repository.LinkRepository
 }
 
 type createLinkRequest struct {
@@ -22,13 +21,17 @@ type createLinkRequest struct {
 	Image       *string `json:"image,omitempty"`
 }
 
-func NewLinkHandler(repo *repository.LinkRepository, testUserID string) *LinkHandler {
-	return &LinkHandler{repo: repo, testUserID: testUserID}
+func NewLinkHandler(repo *repository.LinkRepository) *LinkHandler {
+	return &LinkHandler{repo: repo}
 }
 
 // List handles GET /links
 func (h *LinkHandler) List(c fiber.Ctx) error {
-	links, err := h.repo.ListAll(c.Context())
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+	links, err := h.repo.ListByUserID(c.Context(), userID)
 	if err != nil {
 		log.Printf("Error fetching links: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch links"})
@@ -47,11 +50,9 @@ func (h *LinkHandler) Create(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "url is required"})
 	}
 
-	// TODO: replace with authenticated user once auth is implemented
-	userID, err := uuid.Parse(h.testUserID)
-	if err != nil {
-		log.Printf("invalid TEST_USER_ID: %v", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 	}
 
 	newLink := domain.Link{
