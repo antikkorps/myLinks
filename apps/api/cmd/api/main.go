@@ -29,7 +29,11 @@ func main() {
 	defer pool.Close()
 
 	linkRepo := repository.NewLinkRepository(pool)
-	linkHandler := handler.NewLinkHandler(linkRepo)
+	linkHandler := handler.NewLinkHandler(linkRepo, repository.NewFolderRepository(pool))
+
+	folderRepo := repository.NewFolderRepository(pool)
+	folderService := service.NewFolderService(pool, folderRepo)
+	folderHandler := handler.NewFolderHandler(folderService)
 
 	refreshRepo := repository.NewRefreshTokenRepository(pool)
 	authService := service.NewAuthService(pool, refreshRepo, cfg.JWTSecret, 15*time.Minute, 30*24*time.Hour)
@@ -45,6 +49,13 @@ func main() {
 	link := app.Group("/links", middleware.RequireAuth(cfg.JWTSecret))
 	link.Get("/", linkHandler.List)
 	link.Post("/", linkHandler.Create)
+
+	folder := app.Group("/folders", middleware.RequireAuth(cfg.JWTSecret))
+	folder.Get("/", folderHandler.List)
+	folder.Post("/", folderHandler.Create)
+	folder.Get("/:id", folderHandler.Get)
+	folder.Put("/:id", folderHandler.Rename)
+	folder.Delete("/:id", folderHandler.Delete)
 
 	log.Fatal(app.Listen(":" + cfg.APIPort))
 }
