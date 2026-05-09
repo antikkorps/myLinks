@@ -95,7 +95,7 @@ func (r *TagRepository) SoftDelete(ctx context.Context, id, userID uuid.UUID) er
 }
 
 // Get or create a tag by name. Returns the existing tag if it already exists (not deleted).
-func (r *TagRepository) GetOrCreateByName(ctx context.Context, name string) (domain.Tag, error) {
+func (r *TagRepository) GetOrCreateByName(ctx context.Context, userID uuid.UUID, name string) (domain.Tag, error) {
 	const query = `
 		INSERT INTO tags (user_id, name)
 		VALUES ($1, $2)
@@ -103,7 +103,7 @@ func (r *TagRepository) GetOrCreateByName(ctx context.Context, name string) (dom
 		DO UPDATE SET updated_at = tags.updated_at
 		RETURNING id, user_id, name, created_at, updated_at
 	`
-	rows, err := r.db.Query(ctx, query, name)
+	rows, err := r.db.Query(ctx, query, userID, name)
 	if err != nil {
 		return domain.Tag{}, err
 	}
@@ -133,6 +133,46 @@ func (r *TagRepository) DetachFromLink(ctx context.Context, tagID, linkID uuid.U
 	`
 	_, err := r.db.Exec(ctx, query, tagID, linkID)
 	return err
+}
+
+// DetachAllFromLink removes every pivot row for the given link.
+// Used by the "replace tags" flow before re-attaching the new set.
+// Ownership must be verified by the caller.
+func (r *TagRepository) DetachAllFromLink(ctx context.Context, linkID uuid.UUID) error {
+	const query = `DELETE FROM link_tags WHERE link_id = $1`
+	_, err := r.db.Exec(ctx, query, linkID)
+	return err
+}
+
+// ListByLinkIDs returns tags grouped by link_id, for the given link IDs.
+// Soft-deleted tags are excluded. Returned map only contains entries for
+// link IDs that have at least one tag attached.
+func (r *TagRepository) ListByLinkIDs(ctx context.Context, linkIDs []uuid.UUID) (map[uuid.UUID][]domain.Tag, error) {
+	out := make(map[uuid.UUID][]domain.Tag)
+	if len(linkIDs) == 0 {
+		return out, nil
+	}
+	const query = `
+		SELECT lt.link_id, t.id, t.user_id, t.name, t.created_at, t.updated_at
+		FROM tags t
+		INNER JOIN link_tags lt ON t.id = lt.tag_id
+		WHERE lt.link_id = ANY($1) AND t.deleted_at IS NULL
+		ORDER BY lt.link_id, t.name ASC
+	`
+	rows, err := r.db.Query(ctx, query, linkIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var linkID uuid.UUID
+		var tag domain.Tag
+		if err := rows.Scan(&linkID, &tag.ID, &tag.UserID, &tag.Name, &tag.CreatedAt, &tag.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out[linkID] = append(out[linkID], tag)
+	}
+	return out, rows.Err()
 }
 
 // ListByLink returns the tags attached to a link, sorted by name.

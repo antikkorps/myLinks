@@ -18,3 +18,10 @@ type Link struct {
 	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
 	// DeletedAt intentionally omitted from API responses
 }
+
+// LinkWithTags is the API response shape for a link enriched with its tags.
+// Tags is always non-nil (empty slice when no tags) so JSON output is "tags": [].
+type LinkWithTags struct {
+	Link
+	Tags []Tag `json:"tags"`
+}
