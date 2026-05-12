@@ -26,6 +26,7 @@ var ErrInvalidCredentials = errors.New("invalid credentials")
 
 type AuthService struct {
 	pool        *pgxpool.Pool
+	userRepo    *repository.UserRepository
 	refreshRepo *repository.RefreshTokenRepository
 	jwtSecret   []byte
 	accessTTL   time.Duration
@@ -43,6 +44,7 @@ type LoginResult struct {
 func NewAuthService(pool *pgxpool.Pool, refreshRepo *repository.RefreshTokenRepository, jwtSecret string, accessTTL, refreshTTL time.Duration) *AuthService {
 	return &AuthService{
 		pool:        pool,
+		userRepo:    repository.NewUserRepository(pool),
 		refreshRepo: refreshRepo,
 		jwtSecret:   []byte(jwtSecret),
 		accessTTL:   accessTTL,
@@ -188,6 +190,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 		RefreshToken:     refreshRaw,
 		RefreshExpiresAt: refreshExp,
 	}, nil
+}
+
+func (s *AuthService) GetUser(ctx context.Context, id uuid.UUID) (domain.User, error) {
+	return s.userRepo.GetByID(ctx, id)
 }
 
 func (s *AuthService) Refresh(ctx context.Context, refreshTokenRaw string) (LoginResult, error) {
