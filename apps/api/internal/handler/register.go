@@ -10,12 +10,17 @@ import (
 	"github.com/antikkorps/myLinks/apps/api/internal/service"
 )
 
+type CookieOptions struct {
+	Secure   bool
+	SameSite string
+}
 type AuthHandler struct {
 	auth *service.AuthService
+	opts CookieOptions
 }
 
-func NewAuthHandler(auth *service.AuthService) *AuthHandler {
-	return &AuthHandler{auth: auth}
+func NewAuthHandler(auth *service.AuthService, opts CookieOptions) *AuthHandler {
+	return &AuthHandler{auth: auth, opts: opts}
 }
 
 type registerRequest struct {
