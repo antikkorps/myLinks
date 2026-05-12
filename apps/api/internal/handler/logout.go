@@ -20,8 +20,8 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 		Value:    "",
 		Expires:  expired,
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "Strict",
+		Secure:   h.opts.Secure,
+		SameSite: h.opts.SameSite,
 		Path:     "/",
 	})
 	c.Cookie(&fiber.Cookie{
@@ -29,8 +29,8 @@ func (h *AuthHandler) Logout(c fiber.Ctx) error {
 		Value:    "",
 		Expires:  expired,
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "Strict",
+		Secure:   h.opts.Secure,
+		SameSite: h.opts.SameSite,
 		Path:     "/auth",
 	})
 

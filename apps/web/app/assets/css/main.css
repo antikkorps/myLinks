@@ -1,0 +1,7 @@
+/* Layer order: PrimeVue components override Tailwind preflight resets
+   where they overlap (button, input default styles). */
+@layer tailwind-base, primevue, tailwind-utilities;
+
+@import "tailwindcss/preflight" layer(tailwind-base);
+@import "tailwindcss/utilities" layer(tailwind-utilities);
+@import "tailwindcss/theme" layer(tailwind-base);

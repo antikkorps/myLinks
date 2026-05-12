@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
 
 	"github.com/antikkorps/myLinks/apps/api/internal/config"
 	"github.com/antikkorps/myLinks/apps/api/internal/database"
@@ -43,14 +44,24 @@ func main() {
 
 	refreshRepo := repository.NewRefreshTokenRepository(pool)
 	authService := service.NewAuthService(pool, refreshRepo, cfg.JWTSecret, 15*time.Minute, 30*24*time.Hour)
-	authHandler := handler.NewAuthHandler(authService)
+	authHandler := handler.NewAuthHandler(authService, handler.CookieOptions{
+		Secure:   cfg.CookieSecure,
+		SameSite: "Lax",
+	})
 
 	app := fiber.New()
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{cfg.WebOrigin},
+		AllowCredentials: true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type"},
+	}))
 	app.Get("/health", handler.Health(pool))
 	app.Post("/auth/register", authHandler.Register)
 	app.Post("/auth/login", authHandler.Login)
 	app.Post("/auth/refresh", authHandler.Refresh)
 	app.Post("/auth/logout", authHandler.Logout)
+	app.Get("/auth/me", middleware.RequireAuth(cfg.JWTSecret), authHandler.Me)
 
 	link := app.Group("/links", middleware.RequireAuth(cfg.JWTSecret))
 	link.Get("/", linkHandler.List)

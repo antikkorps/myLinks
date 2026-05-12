@@ -38,8 +38,8 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		Value:    result.AccessToken,
 		Expires:  result.AccessExpiresAt,
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "Strict",
+		Secure:   h.opts.Secure,
+		SameSite: h.opts.SameSite,
 		Path:     "/",
 	})
 	c.Cookie(&fiber.Cookie{
@@ -47,8 +47,8 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		Value:    result.RefreshToken,
 		Expires:  result.RefreshExpiresAt,
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: "Strict",
+		Secure:   h.opts.Secure,
+		SameSite: h.opts.SameSite,
 		Path:     "/auth",
 	})
 

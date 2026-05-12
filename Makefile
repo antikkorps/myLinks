@@ -7,7 +7,7 @@ endif
 DATABASE_URL ?= postgres://mylinks:mylinks_dev@localhost:5434/mylinks?sslmode=disable
 MIGRATIONS_DIR := migrations
 
-.PHONY: db-up db-down db-logs db-psql migrate-up migrate-down migrate-status migrate-create api-run api-build
+.PHONY: db-up db-down db-logs db-psql migrate-up migrate-down migrate-status migrate-create api-run api-build web-install web-dev web-build
 
 ## --- Docker (Postgres) ---
 db-up:
@@ -42,3 +42,13 @@ api-run:
 
 api-build:
 	cd apps/api && go build -o bin/api ./cmd/api
+
+## --- Web (Nuxt) ---
+web-install:
+	cd apps/web && pnpm install
+
+web-dev:
+	cd apps/web && pnpm dev
+
+web-build:
+	cd apps/web && pnpm build
