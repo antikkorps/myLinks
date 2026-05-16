@@ -1,10 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ auth: false })
 
-const route = useRoute()
-const justRegistered = computed(() => route.query.registered === "1")
-
-const { email, password, error, isLoading, submit } = useLoginForm()
+const { email, password, firstname, lastname, error, isLoading, submit } =
+  useRegisterForm()
 </script>
 
 <template>
@@ -13,11 +11,31 @@ const { email, password, error, isLoading, submit } = useLoginForm()
       class="w-full max-w-sm bg-white rounded-lg shadow p-8 space-y-6"
       @submit.prevent="submit"
     >
-      <h1 class="text-2xl font-semibold text-center">Connexion</h1>
+      <h1 class="text-2xl font-semibold text-center">Créer un compte</h1>
 
-      <Message v-if="justRegistered" severity="success" :closable="false">
-        Compte créé, vous pouvez vous connecter.
-      </Message>
+      <div class="space-y-2">
+        <label for="firstname" class="block text-sm font-medium">Prénom</label>
+        <InputText
+          id="firstname"
+          v-model="firstname"
+          type="text"
+          autocomplete="given-name"
+          required
+          class="w-full"
+        />
+      </div>
+
+      <div class="space-y-2">
+        <label for="lastname" class="block text-sm font-medium">Nom</label>
+        <InputText
+          id="lastname"
+          v-model="lastname"
+          type="text"
+          autocomplete="family-name"
+          required
+          class="w-full"
+        />
+      </div>
 
       <div class="space-y-2">
         <label for="email" class="block text-sm font-medium">Email</label>
@@ -38,8 +56,9 @@ const { email, password, error, isLoading, submit } = useLoginForm()
           v-model="password"
           :feedback="false"
           toggle-mask
-          autocomplete="current-password"
+          autocomplete="new-password"
           required
+          minlength="8"
           input-class="w-full"
           class="w-full"
         />
@@ -51,15 +70,15 @@ const { email, password, error, isLoading, submit } = useLoginForm()
 
       <Button
         type="submit"
-        label="Se connecter"
+        label="Créer mon compte"
         :loading="isLoading"
         class="w-full"
       />
 
       <p class="text-sm text-center text-gray-600">
-        Pas encore de compte ?
-        <NuxtLink to="/register" class="text-blue-600 hover:underline">
-          Créer un compte
+        Déjà un compte ?
+        <NuxtLink to="/login" class="text-blue-600 hover:underline">
+          Se connecter
         </NuxtLink>
       </p>
     </form>
