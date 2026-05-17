@@ -5,3 +5,5 @@
 @import "tailwindcss/preflight" layer(tailwind-base);
 @import "tailwindcss/utilities" layer(tailwind-utilities);
 @import "tailwindcss/theme" layer(tailwind-base);
+
+@import "primeicons/primeicons.css";
