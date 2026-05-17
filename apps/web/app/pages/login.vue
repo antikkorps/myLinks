@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: "auth", auth: false })
+definePageMeta({ layout: "auth", auth: false, middleware: "guest" })
 
 const route = useRoute()
 const justRegistered = computed(() => route.query.registered === "1")

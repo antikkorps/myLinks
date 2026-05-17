@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: "auth", auth: false })
+definePageMeta({ layout: "auth", auth: false, middleware: "guest" })
 
 const { email, password, firstname, lastname, error, isLoading, submit } =
   useRegisterForm()
