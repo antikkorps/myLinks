@@ -51,6 +51,12 @@ const items = ref([
   {
     label: "Home",
     icon: "pi pi-home",
+    command: () => navigateTo("/"),
+  },
+  {
+    label: "Links",
+    icon: "pi pi-link",
+    command: () => navigateTo("/links"),
   },
 ])
 </script>
