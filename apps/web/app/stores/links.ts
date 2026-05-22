@@ -6,6 +6,7 @@ export interface CreateLinkInput {
   title?: string
   description?: string
   folder_id?: string
+  clear_folder?: boolean
   image?: string
   tags?: string[]
 }

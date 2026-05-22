@@ -5,6 +5,7 @@ import type { CreateLinkInput } from "~/stores/links"
 import type { Link } from "~/types/link"
 
 const store = useLinksStore()
+const foldersStore = useFoldersStore()
 const confirm = useConfirm()
 
 const showCreate = ref(false)
@@ -17,6 +18,7 @@ const updateError = ref<string | null>(null)
 
 onMounted(() => {
   store.fetchAllLinks()
+  foldersStore.fetchAllFolders()
 })
 
 function openCreate() {
@@ -167,6 +169,7 @@ function confirmDelete(link: {
       :closable="!isCreating"
     >
       <LinkForm
+        :folders="foldersStore.folders"
         :is-submitting="isCreating"
         :server-error="createError"
         @submit="onCreate"
@@ -185,6 +188,7 @@ function confirmDelete(link: {
       <LinkForm
         v-if="editingLink"
         :initial-value="editingInitialValue(editingLink)"
+        :folders="foldersStore.folders"
         :is-submitting="isUpdating"
         :server-error="updateError"
         submit-label="Save"

@@ -3,4 +3,6 @@ export const errorMessages: Record<string, string> = {
   email_already_exists: "Cet email est déjà utilisé",
   network_error: "Connexion impossible, réessayez",
   url_required: "L'URL est requise",
+  invalid_name: "Le nom est requis (1-100 caractères)",
+  not_found: "Élément introuvable",
 }
