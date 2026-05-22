@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { CreateLinkInput } from "~/stores/links"
+import type { Folder } from "~/types/folders"
 
 const props = defineProps<{
   initialValue?: CreateLinkInput
+  folders?: Folder[]
   submitLabel?: string
   isSubmitting?: boolean
   serverError?: string | null
@@ -16,8 +18,11 @@ const emit = defineEmits<{
 const url = ref(props.initialValue?.url ?? "")
 const title = ref(props.initialValue?.title ?? "")
 const description = ref(props.initialValue?.description ?? "")
+const folderId = ref<string | null>(props.initialValue?.folder_id ?? null)
 const tagsInput = ref(props.initialValue?.tags?.join(", ") ?? "")
 const clientError = ref<string | null>(null)
+
+const initialFolderId = props.initialValue?.folder_id ?? null
 
 const displayedError = computed(
   () => clientError.value ?? props.serverError ?? null,
@@ -36,10 +41,15 @@ function onSubmit() {
     .map((t) => t.trim())
     .filter((t) => t.length > 0)
 
+  const folderChanged = folderId.value !== initialFolderId
+  const clearFolder = folderChanged && folderId.value === null && initialFolderId !== null
+
   emit("submit", {
     url: trimmedUrl,
     title: title.value.trim() || undefined,
     description: description.value.trim() || undefined,
+    folder_id: folderId.value ?? undefined,
+    clear_folder: clearFolder ? true : undefined,
     tags: tags.length > 0 ? tags : undefined,
   })
 }
@@ -66,6 +76,19 @@ function onSubmit() {
     <div class="flex flex-col gap-1">
       <label for="link-description" class="font-medium">Description</label>
       <Textarea id="link-description" v-model="description" rows="3" />
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label for="link-folder" class="font-medium">Folder</label>
+      <Select
+        id="link-folder"
+        v-model="folderId"
+        :options="folders ?? []"
+        option-label="name"
+        option-value="id"
+        placeholder="No folder"
+        show-clear
+      />
     </div>
 
     <div class="flex flex-col gap-1">
