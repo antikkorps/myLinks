@@ -16,6 +16,26 @@ const editingLink = ref<Link | null>(null)
 const isUpdating = ref(false)
 const updateError = ref<string | null>(null)
 
+// Search: debounced server-side query. Each new search aborts the previous
+// in-flight request so a slow earlier response can't clobber a newer one.
+const search = ref("")
+let searchController: AbortController | null = null
+
+async function runSearch(q: string) {
+  searchController?.abort()
+  const controller = new AbortController()
+  searchController = controller
+  try {
+    await store.fetchAllLinks(q.trim(), controller.signal)
+  } catch (err) {
+    // Aborted by a newer search — the superseding request owns the result.
+    if (controller.signal.aborted) return
+    console.error("search links failed", err)
+  }
+}
+
+watchDebounced(search, (q) => runSearch(q), { debounce: 300 })
+
 onMounted(() => {
   store.fetchAllLinks()
   foldersStore.fetchAllFolders()
@@ -106,10 +126,26 @@ function confirmDelete(link: {
       <Button label="New link" icon="pi pi-plus" @click="openCreate" />
     </div>
 
-    <div v-if="store.isLoading" class="text-gray-500">Loading...</div>
+    <IconField class="w-full mb-4">
+      <InputIcon
+        :class="store.isLoading ? 'pi pi-spin pi-spinner' : 'pi pi-search'"
+      />
+      <InputText
+        v-model="search"
+        placeholder="Search links..."
+        class="w-full"
+      />
+    </IconField>
+
+    <div
+      v-if="store.isLoading && store.links.length === 0"
+      class="text-gray-500"
+    >
+      Loading...
+    </div>
 
     <div v-else-if="store.links.length === 0" class="text-gray-500">
-      No links yet.
+      {{ search.trim() ? "No links match your search." : "No links yet." }}
     </div>
 
     <div v-else class="flex flex-col gap-4">

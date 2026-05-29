@@ -15,13 +15,22 @@ export const useLinksStore = defineStore("links", () => {
   const links = ref<Link[]>([])
   const isLoading = ref(false)
 
-  async function fetchAllLinks(): Promise<void> {
+  // fetchAllLinks lists the user's links, optionally filtered by a search query.
+  // Pass an AbortSignal to make a superseding search cancel this one: on abort
+  // we leave isLoading true on purpose — the newer request now owns it, and
+  // resetting here would flicker the loader off while it's still in flight.
+  async function fetchAllLinks(q = "", signal?: AbortSignal): Promise<void> {
     const { $api } = useNuxtApp()
     isLoading.value = true
     try {
-      links.value = await $api<Link[]>("/links")
-    } finally {
+      links.value = await $api<Link[]>("/links", {
+        query: q ? { q } : undefined,
+        signal,
+      })
       isLoading.value = false
+    } catch (err) {
+      if (!signal?.aborted) isLoading.value = false
+      throw err
     }
   }
 
