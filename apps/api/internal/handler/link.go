@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"log"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -43,7 +44,8 @@ func (h *LinkHandler) List(c fiber.Ctx) error {
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 	}
-	links, err := h.svc.List(c.Context(), userID)
+	q := strings.TrimSpace(c.Query("q"))
+	links, err := h.svc.List(c.Context(), userID, q)
 	if err != nil {
 		log.Printf("list links failed: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})

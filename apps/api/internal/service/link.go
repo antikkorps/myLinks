@@ -127,8 +127,19 @@ func (s *LinkService) Get(ctx context.Context, userID, id uuid.UUID) (domain.Lin
 	return domain.LinkWithTags{Link: link, Tags: tags}, nil
 }
 
-func (s *LinkService) List(ctx context.Context, userID uuid.UUID) ([]domain.LinkWithTags, error) {
-	links, err := s.linkRepo.ListByUserID(ctx, userID)
+// List returns the user's links, optionally filtered by a search query.
+// An empty q (after trimming, done by the handler) lists everything; a non-empty
+// q runs a trigram substring search over title/url/description/tag names.
+func (s *LinkService) List(ctx context.Context, userID uuid.UUID, q string) ([]domain.LinkWithTags, error) {
+	var (
+		links []domain.Link
+		err   error
+	)
+	if q == "" {
+		links, err = s.linkRepo.ListByUserID(ctx, userID)
+	} else {
+		links, err = s.linkRepo.SearchByUserID(ctx, userID, q)
+	}
 	if err != nil {
 		return nil, err
 	}

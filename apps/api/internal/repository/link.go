@@ -73,6 +73,34 @@ func (r *LinkRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]
 	return pgx.CollectRows(rows, pgx.RowToStructByName[domain.Link])
 }
 
+// SearchByUserID returns the user's links whose title, url, description, or any
+// attached tag name matches q as a case-insensitive substring (ILIKE '%q%').
+// Backed by pg_trgm GIN indexes (see migration 4). q is assumed non-empty and
+// trimmed by the caller.
+func (r *LinkRepository) SearchByUserID(ctx context.Context, userID uuid.UUID, q string) ([]domain.Link, error) {
+	const query = `
+		SELECT id, user_id, folder_id, url, title, description, image, created_at, updated_at
+		FROM links
+		WHERE user_id = $1 AND deleted_at IS NULL
+		  AND (title ILIKE '%' || $2 || '%'
+		    OR url ILIKE '%' || $2 || '%'
+		    OR description ILIKE '%' || $2 || '%'
+		    OR EXISTS (
+		         SELECT 1
+		         FROM link_tags lt
+		         JOIN tags t ON t.id = lt.tag_id
+		         WHERE lt.link_id = links.id
+		           AND t.deleted_at IS NULL
+		           AND t.name ILIKE '%' || $2 || '%'))
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Query(ctx, query, userID, q)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByName[domain.Link])
+}
+
 // Update writes the mutable fields of l (folder_id, url, title, description, image).
 // Returns pgx.ErrNoRows if no row matched (not found or not owned).
 func (r *LinkRepository) Update(ctx context.Context, id, userID uuid.UUID, l domain.Link) (domain.Link, error) {
